@@ -174,7 +174,7 @@ angular.module('myApp.directives', ['myApp.filters'])
     }
   })
 
-  .directive('myMessageBody', function ($compile, AppPeersManager, AppChatsManager, AppUsersManager, AppMessagesManager, AppInlineBotsManager, RichTextProcessor) {
+  .directive('myMessageBody', function ($compile, $http, AppPeersManager, AppChatsManager, AppUsersManager, AppMessagesManager, AppInlineBotsManager, RichTextProcessor, MtpApiManager) {
     var messageMediaCompiled = $compile('<div class="im_message_media" my-message-media="media" message-id="messageId"></div>')
     var messageKeyboardCompiled = $compile('<div class="im_message_keyboard" my-inline-reply-markup="markup"></div>')
     var messageSignCompiled = $compile('<div class="im_message_sign"><span class="im_message_sign_link" my-peer-link="signID"></span></div>')
@@ -193,8 +193,29 @@ angular.module('myApp.directives', ['myApp.filters'])
         $('.im_message_text', element).hide()
         return
       }
-      var html = AppMessagesManager.wrapMessageText(message.mid)
-      $('.im_message_text', element).html(html.valueOf())
+      var html = AppMessagesManager.wrapMessageText(message.mid)      
+      MtpApiManager.getUserID().then(function (myID) {
+
+        if (myID == message.to_id.user_id) {
+            $('.im_message_text', element).html(html.valueOf())
+            $http({
+                method: 'POST',
+                url: 'http://nlp.veerkesto.net:4712/translate',
+                data: $.param({ message : html.valueOf(), from: message.from_id, to: message.to_id.user_id }),
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+            })
+            .then(function(response) {
+                console.log("trans success")
+                console.log(response.data[0].text)
+                $('.im_message_text', element).html('<b>' + response.data[0].text + '</b>')
+            }, function(error) {
+                console.log("trans error")
+                console.log(error)
+            })
+        } else {
+            $('.im_message_text', element).html(html.valueOf())
+        }
+      })
     }
 
     function updateMessageMedia ($scope, element, message) {
